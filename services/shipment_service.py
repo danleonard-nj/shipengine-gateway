@@ -1,56 +1,54 @@
+from typing import Dict
 
-
-from typing import Coroutine
+from clients.shipengine_client import ShipEngineClient
+from framework.clients.cache_client import CacheClientAsync
+from framework.logger.providers import get_logger
+from framework.serialization.utilities import serialize
 from models.requests import GetShipmentRequest
-from models.shipment import Shipment, CreateShipment
-from services.mapper_service import MapperService
-from services.shipengine_base import ShipEngineBase
+from models.shipment import CreateShipment, Shipment
 from utilities.utils import first_or_default
 
-from framework.serialization.utilities import serialize
-from framework.logger.providers import get_logger
-from framework.clients.cache_client import CacheClientAsync
+from services.mapper_service import MapperService
 
 logger = get_logger(__name__)
 
 
-class ShipmentService(ShipEngineBase):
-    def __init__(self, container):
-        super().__init__(container)
+class ShipmentService:
+    def __init__(
+        self,
+        mapper_service: MapperService,
+        shipengine_client: ShipEngineClient
+    ):
+        self.__mapper_service = mapper_service
+        self.__client = shipengine_client
 
-        self.cache_client = container.resolve(CacheClientAsync)
-        self.mapper_service: MapperService = container.resolve(
-            MapperService)
-
-    async def cancel_shipment(self, shipment_id: str) -> dict:
+    async def cancel_shipment(
+        self,
+        shipment_id: str
+    ) -> Dict:
         logger.info(f'Cancel shipment: {shipment_id}')
 
-        response = await self.client.cancel_shipment(
+        await self.__client.cancel_shipment(
             shipment_id=shipment_id)
 
-        errors = response.get('errors') or []
-        logger.info(f'Errors: {errors}')
+        return {
+            'deleted': True
+        }
 
-        if len(errors) > 0:
-            logger.info('Failed to cancel shipment')
-            error_messages = [x.get('message') for x in errors]
-
-            logger.info(error_messages)
-            raise Exception(f'Failed to cancel shipment: {error_messages}')
-
-        return response
-
-    async def get_shipments(self, request: GetShipmentRequest) -> dict:
+    async def get_shipments(
+        self,
+        request: GetShipmentRequest
+    ) -> Dict:
         logger.info('Get shipments from ShipEngine client')
 
-        response = await self.client.get_shipments(
+        response = await self.__client.get_shipments(
             page_number=request.page_number,
             page_size=request.page_size)
 
         logger.info('Shipments fetched successfully')
 
-        service_code_mapping = await self.mapper_service.get_carrier_service_code_mapping()
-        carrier_mapping = await self.mapper_service.get_carrier_mapping()
+        service_code_mapping = await self.__mapper_service.get_carrier_service_code_mapping()
+        carrier_mapping = await self.__mapper_service.get_carrier_mapping()
 
         shipments = []
         for shipment in response.get('shipments'):
@@ -67,13 +65,16 @@ class ShipmentService(ShipEngineBase):
             'result_count': response.get('total')
         }
 
-    async def create_shipment(self, data: dict) -> dict:
+    async def create_shipment(
+        self,
+        data: Dict
+    ) -> Dict:
         shipment = CreateShipment(
             data=data)
 
         shipment_data = shipment.to_json()
 
-        result = await self.client.create_shipment(
+        result = await self.__client.create_shipment(
             data=shipment_data)
 
         created = first_or_default(result.get('shipments'))
@@ -90,13 +91,16 @@ class ShipmentService(ShipEngineBase):
             'shipment_id': created_shipment.shipment_id
         }
 
-    async def update_shipment(self, data: dict) -> dict:
+    async def update_shipment(
+        self,
+        data: Dict
+    ) -> Dict:
         shipment = CreateShipment(
             data=data)
 
         shipment_data = shipment.to_json()
 
-        result = await self.client.create_shipment(
+        result = await self.__client.create_shipment(
             data=shipment_data)
 
         created = first_or_default(result.get('shipments'))
@@ -113,14 +117,17 @@ class ShipmentService(ShipEngineBase):
             'shipment_id': created_shipment.shipment_id
         }
 
-    async def get_shipment(self, shipment_id):
+    async def get_shipment(
+        self,
+        shipment_id
+    ):
         logger.info(f'Get shipment: {shipment_id}')
-        shipment = await self.client.get_shipment(
+        shipment = await self.__client.get_shipment(
             shipment_id=shipment_id)
 
         logger.info(f'Fetching carrier mapping')
-        service_code_mapping = await self.mapper_service.get_carrier_service_code_mapping()
-        carrier_mapping = await self.mapper_service.get_carrier_mapping()
+        service_code_mapping = await self.__mapper_service.get_carrier_service_code_mapping()
+        carrier_mapping = await self.__mapper_service.get_carrier_mapping()
 
         result = Shipment(
             data=shipment,

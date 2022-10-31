@@ -1,23 +1,31 @@
 
 from datetime import datetime
-from services.shipengine_base import ShipEngineBase
-from utilities.utils import first_or_default
-from models.label import Label
+from typing import Dict
+
+from clients.shipengine_client import ShipEngineClient
 from dateutil import parser
-
 from framework.logger.providers import get_logger
-from framework.validators.nulls import not_none
 from framework.serialization.utilities import serialize
+from framework.validators.nulls import not_none
+from models.label import Label
+from utilities.utils import first_or_default
 
+from services.shipengine_base import ShipEngineBase
 
 logger = get_logger(__name__)
 
 
-class LabelService(ShipEngineBase):
-    def __init__(self, container):
-        super().__init__(container)
+class LabelService:
+    def __init__(
+        self,
+        shipengine_client: ShipEngineClient
+    ):
+        self.__client = shipengine_client
 
-    async def create_label(self, shipment_id: str):
+    async def create_label(
+        self,
+        shipment_id: str
+    ):
         not_none(shipment_id, 'shipment_id')
 
         logger.info(f'Create label from shipment: {shipment_id}')
@@ -25,7 +33,7 @@ class LabelService(ShipEngineBase):
         # Fetch the shipment and update the ship date if it's not current.  The API
         # doesn't provide any capabilities to do this on the fly when requesting the
         # label, so if the ship date is in the past it'll just error out
-        shipment = await self.client.get_shipment(
+        shipment = await self.__client.get_shipment(
             shipment_id=shipment_id)
 
         if shipment is None:
@@ -41,13 +49,13 @@ class LabelService(ShipEngineBase):
             shipment['ship_date'] = now.date().isoformat()
 
             logger.info(f'Sending shipment update call')
-            update_response = await self.client.update_shipment(
+            update_response = await self.__client.update_shipment(
                 shipment_id=shipment_id,
                 data=shipment)
 
             logger.info(f'Update response: {serialize(update_response)}')
 
-        label = await self.client.create_label(
+        label = await self.__client.create_label(
             shipment_id=shipment_id)
 
         logger.info(f'Response: {serialize(label)}')
@@ -59,11 +67,14 @@ class LabelService(ShipEngineBase):
 
         return label
 
-    async def get_label(self, shipment_id: str) -> dict:
+    async def get_label(
+        self,
+        shipment_id: str
+    ) -> Dict:
         logger.info(f'Get label for shipment: {shipment_id}')
         not_none(shipment_id, 'shipment_id')
 
-        label_response = await self.client.get_label(
+        label_response = await self.__client.get_label(
             shipment_id=shipment_id)
 
         label = first_or_default(

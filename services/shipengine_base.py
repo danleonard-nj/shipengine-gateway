@@ -6,5 +6,8 @@ logger = get_logger(__name__)
 
 
 class ShipEngineBase:
-    def __init__(self, container):
-        self.client: ShipEngineClient = container.resolve(ShipEngineClient)
+    def __init__(
+        self,
+
+    ):
+        self.__client: ShipEngineClient = container.resolve(ShipEngineClient)

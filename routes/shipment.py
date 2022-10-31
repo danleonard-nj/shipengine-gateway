@@ -1,21 +1,16 @@
-from models.requests import GetShipmentRequest
-from services.shipment_service import ShipmentService
-from quart import Blueprint, request
-
-from framework.handlers.response_handler_async import response_handler
 from framework.logger.providers import get_logger
-from framework.auth.wrappers.azure_ad_wrappers import azure_ad_authorization
+from framework.rest.blueprints.meta import MetaBlueprint
 from framework.serialization.utilities import serialize
-
+from models.requests import GetShipmentRequest
+from quart import request
+from services.shipment_service import ShipmentService
 
 logger = get_logger(__name__)
-shipment_bp = Blueprint('shipment_bp', __name__)
+shipment_bp = MetaBlueprint('shipment_bp', __name__)
 
 
-@shipment_bp.route('/api/shipment', methods=['GET'], endpoint='get_shipments')
-@response_handler
-@azure_ad_authorization(scheme='read')
-async def get_shipment(container):
+@shipment_bp.configure('/api/shipment', methods=['GET'], auth_scheme='read')
+async def get_shipments(container):
     shipment_service: ShipmentService = container.resolve(
         ShipmentService)
 
@@ -30,9 +25,7 @@ async def get_shipment(container):
     return shipments
 
 
-@shipment_bp.route('/api/shipment/<shipment_id>', methods=['GET'], endpoint='get_shipment')
-@response_handler
-@azure_ad_authorization(scheme='read')
+@shipment_bp.configure('/api/shipment/<shipment_id>', methods=['GET'], auth_scheme='read')
 async def get_shipment(container, shipment_id):
     shipment_service: ShipmentService = container.resolve(
         ShipmentService)
@@ -43,9 +36,7 @@ async def get_shipment(container, shipment_id):
     return shipment
 
 
-@shipment_bp.route('/api/shipment', methods=['POST'], endpoint='post_shipment')
-@response_handler
-@azure_ad_authorization(scheme='write')
+@shipment_bp.configure('/api/shipment', methods=['POST'], auth_scheme='write')
 async def post_shipment(container):
     shipment_service: ShipmentService = container.resolve(
         ShipmentService)
@@ -62,13 +53,10 @@ async def post_shipment(container):
     return result
 
 
-@shipment_bp.route('/api/shipment/<shipment_id>/cancel', methods=['PUT'], endpoint='cancel_shipment')
-@response_handler
-@azure_ad_authorization(scheme='write')
+@shipment_bp.configure('/api/shipment/<shipment_id>/cancel', methods=['PUT'], auth_scheme='write')
 async def cancel_shipment(container, shipment_id: str):
     shipment_service: ShipmentService = container.resolve(
         ShipmentService)
 
-    result = await shipment_service.cancel_shipment(
+    return await shipment_service.cancel_shipment(
         shipment_id=shipment_id)
-    return result

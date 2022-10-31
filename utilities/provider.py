@@ -1,21 +1,17 @@
-from quart import Quart, request
-
-from framework.dependency_injection.provider import ProviderBase
-from framework.dependency_injection.container import Container
-from framework.configuration.configuration import Configuration
-from framework.clients.cache_client import CacheClientAsync
-from framework.abstractions.abstract_request import RequestContextProvider
-
 from clients.shipengine_client import ShipEngineClient
+from framework.abstractions.abstract_request import RequestContextProvider
+from framework.auth.azure import AzureAd
+from framework.auth.configuration import AzureAdConfiguration
+from framework.clients.cache_client import CacheClientAsync
+from framework.configuration.configuration import Configuration
+from framework.di.service_collection import ServiceCollection
+from framework.di.static_provider import ProviderBase
+from quart import Quart, request
 from services.carrier_service import CarrierService
 from services.label_service import LabelService
 from services.mapper_service import MapperService
 from services.rate_service import RateService
 from services.shipment_service import ShipmentService
-
-from framework.auth.azure import AzureAd
-from framework.auth.configuration import AzureAdConfiguration
-from framework.clients.http_client import HttpClient
 
 
 class AdRole:
@@ -48,24 +44,24 @@ def configure_azure_ad(container):
 class ContainerProvider(ProviderBase):
     @classmethod
     def configure_container(cls):
-        container = Container()
+        container = ServiceCollection()
 
         container.add_singleton(Configuration)
         container.add_singleton(CacheClientAsync)
-        container.add_singleton(HttpClient)
 
-        container.add_factory_singleton(
-            _type=AzureAd,
+        container.add_singleton(
+            dependency_type=AzureAd,
             factory=configure_azure_ad)
 
+        container.add_singleton(MapperService)
         container.add_singleton(ShipEngineClient)
-        container.add_transient(CarrierService)
+        container.add_singleton(CarrierService)
+
         container.add_transient(LabelService)
         container.add_transient(RateService)
         container.add_transient(ShipmentService)
-        container.add_singleton(MapperService)
 
-        return container.build()
+        return container
 
 
 def add_container_hook(app: Quart):

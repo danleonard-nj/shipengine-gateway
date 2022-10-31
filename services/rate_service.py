@@ -1,27 +1,32 @@
+from typing import Dict
 
-
-from typing import Coroutine
-from services.carrier_service import CarrierService
-from services.shipengine_base import ShipEngineBase
-from models.rate import Rate, ShipmentRate
-
+from clients.shipengine_client import ShipEngineClient
 from framework.logger.providers import get_logger
 from framework.serialization.utilities import serialize
+from models.rate import Rate, ShipmentRate
+
+from services.carrier_service import CarrierService
+from services.shipengine_base import ShipEngineBase
 
 logger = get_logger(__name__)
 
 
-class RateService(ShipEngineBase):
-    def __init__(self, container):
-        super().__init__(container)
+class RateService:
+    def __init__(
+        self,
+        carrier_service: CarrierService,
+        shipengine_client: ShipEngineClient
+    ):
+        self.__client = shipengine_client
+        self.__carrier_service = carrier_service
 
-        self.carrier_service: CarrierService = container.resolve(
-            CarrierService)
-
-    async def get_rates(self, shipment: dict) -> dict:
+    async def get_rates(
+        self,
+        shipment: Dict
+    ) -> Dict:
         logger.info('Get shipment rates')
 
-        carriers = await self.carrier_service.get_carriers()
+        carriers = await self.__carrier_service.get_carriers()
         carrier_ids = [
             x.get('carrier_id')
             for x in carriers
@@ -36,7 +41,7 @@ class RateService(ShipEngineBase):
         model.validate()
 
         rate_request = model.to_shipment_json()
-        rates = await self.client.get_rates(
+        rates = await self.__client.get_rates(
             shipment=rate_request)
 
         rate_response = rates.get('rate_response')
@@ -67,7 +72,10 @@ class RateService(ShipEngineBase):
             'errors': carrier_rate_errors
         }
 
-    def to_rate_error(self, error: dict) -> dict:
+    def to_rate_error(
+        self,
+        error: Dict
+    ) -> Dict:
         return {
             "error_code": error.get('error_code'),
             "error_source": error.get('error_source'),

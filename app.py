@@ -1,14 +1,15 @@
-from quart import Quart
-from routes.shipment import shipment_bp
-from routes.carriers import carrier_bp
-from routes.rates import rates_bp
-from routes.labels import label_bp
-from routes.health import health_bp
 from dotenv import load_dotenv
-from utilities.provider import add_container_hook
-
+from framework.abstractions.abstract_request import RequestContextProvider
+from framework.dependency_injection.provider import InternalProvider
 from framework.logger.providers import get_logger
+from quart import Quart
 
+from routes.carriers import carrier_bp
+from routes.health import health_bp
+from routes.labels import label_bp
+from routes.rates import rates_bp
+from routes.shipment import shipment_bp
+from utilities.provider import ContainerProvider
 
 load_dotenv()
 
@@ -22,7 +23,15 @@ app.register_blueprint(carrier_bp)
 app.register_blueprint(rates_bp)
 app.register_blueprint(label_bp)
 
-add_container_hook(app)
+ContainerProvider.initialize_provider()
+InternalProvider.bind(ContainerProvider.get_service_provider())
+
+
+@app.before_serving
+async def startup():
+    RequestContextProvider.initialize_provider(
+        app=app)
+
 
 if __name__ == '__main__':
     app.run(debug=True, port='5088')
